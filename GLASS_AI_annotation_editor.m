@@ -353,7 +353,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                 else
                     %% check app version on Github
                     % fetch current version of the app code from GitHub
-                    gitData = webread("https://raw.githubusercontent.com/jlockhar/GLASS-AI/main/GLASS_AI_APP.m");
+                    gitData = webread("https://raw.githubusercontent.com/jlockhar/GLASS-AI-annotation-editor/main/GLASS_AI_annotation_editor.m");
                     % extract version property and parse into major minor patch
                     versionPattern = regexpPattern("(?<=GLASSAI_EDITOR_APP_VERSION \= \')([0-9\.]+)(?=\')");
                     gitVersion = string(extract(gitData,versionPattern));
