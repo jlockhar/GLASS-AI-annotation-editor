@@ -51,7 +51,7 @@ For troubleshooting advice, please reach out to us by (preferably) [opening a ne
 
 **GLASS-AI Annotation Editor Standalone App Use License**
 
-Copyright (c) 2024 Moffitt Cancer Center
+Copyright (c) 2024 H. Lee Moffitt Cancer Center and Research Institute
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
