@@ -6,15 +6,13 @@ The main purpose is to mark regions to be excluded from analysis (e.g., non-lung
 Download and run the latest version of GLASS-AI for your operating system [here](https://moffitt.box.com/s/xii1rsfm93v7vnnokp2m8lx8vprojc1c). Installers are hosted by Moffitt Cancer Center as the files are too large to upload to GitHub.
 
    - **Mac users: Please make sure you use the correct installer based on your CPU (Intel or Silicon)**
-   - **Mac users: If you get a 'GLASS-AI....app can't be opened' or 'GLASS-AI....app is damaged' error when trying to run the installer, it is being blocked by your security settings in MacOS. If you can't enable installation from third-party developers, you can remove the quarantine flag that MacOS adds to downloaded apps by running `xattr -c <path/to/GLASS-AI_installer.app>` in Terminal before running the installer.**
+   - **Mac users: If you get a 'GLASS-AI....app can't be opened' or 'GLASS-AI....app is damaged' error when trying to run the installer, it is being blocked by your security settings in MacOS. If you can't enable installation from third-party developers, you can remove the quarantine flag that MacOS adds to downloaded apps by running `xattr -c <path/to/GLASS-AI_annotation_editor_installer.app>` in Terminal before running the installer.**
    - Older versions of the GLASS-AI annotation editor can be found [here](https://moffitt.box.com/s/u55lk721e5vxa5hcejfgip2qs6iffkjb).
    - During startup, the GLASS-AI annotation editor will check for new versions of the app here on GitHub and let you know if an update is available.
 
 Each installer will also install a copy of the MATLAB Runtime required to run the program without a pre-existing copy of MATLAB (and requisite toolboxes). **You do not need a MATLAB license to run the precompiled versions of GLASS-AI**.
 
 You can also use the `GLASS_AI_annotation_editor.m` file in this repository if you have the required MATLAB version. 
-
-A set of demo images is also available as a `.zip` file [here](https://moffitt.box.com/s/3t3uz331nrf20yxsc0a62e034bmimlr6).
 
 *Installation time should be < 5 minutes, but may take longer depending on download speeds between your computer and MATHWORKS. Any updates to GLASS-AI that do not require updating the MATLAB Runtime should install almost instantly.*
 
@@ -38,11 +36,13 @@ In the GLASS-AI Annotation Editor App, we then select the image file, GLASS-AI o
 Once all of the files have been added, clicking the `Run` button will overlay the manual annotations on the GLASS-AI output classifications, reanalyze the tumors in the image, and output the modified results.
 ![Annotation editor workflow](https://github.com/user-attachments/assets/5de4e7c2-b360-49c6-bfc7-442670feb738)
 
-The options that can affect the tumor analysis in the GLASS-AI app are also available in this app's 'Tumor Analysis' tab.
+Tumor analysis in the GLASS-AI app is also available in this app's 'Tumor Analysis' tab.
+- If you import a GLASS-AI log file, these options will be automatically set to the same values used in the GLASS-AI run.
 
 If you want to use your own class names in QuPath, you can define the mapping to the GLASS-AI classes in the 'Annotation Mapping' tab.
 
 Likewise, the colors used to represent each class in the output images can be changed in the 'Grade Map Colors' tab, while the scale of the output images can be set in the 'Output Image Scaling' tab.
+- If you import a GLASS-AI log file, these options will be automatically set to the same values used in the GLASS-AI run.
 
 
 For troubleshooting advice, please reach out to us by (preferably) [opening a new issue on Github](https://github.com/jlockhar/GLASS-AI/issues/new) or contacting the authors via the correspondence email included in the [GLASS-AI manuscript](https://doi.org/10.1038/s41698-023-00419-3).	
