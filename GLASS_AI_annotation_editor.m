@@ -117,6 +117,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         GradeMapScalingSlider           matlab.ui.control.Slider
         GradeMapScalingSliderLabel      matlab.ui.control.Label
         LinksTab                        matlab.ui.container.Tab
+        Hyperlink_4                     matlab.ui.control.Hyperlink
         Hyperlink_3                     matlab.ui.control.Hyperlink
         Hyperlink_2                     matlab.ui.control.Hyperlink
         Hyperlink                       matlab.ui.control.Hyperlink
@@ -399,7 +400,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             catch ME
                 app.VersionLabel.Tooltip = "Could not check app version on GitHub";
                 % report error in non-deployed environment
-                sprtinf("Could not check app version against GitHub:\n %s\n",ME.message)
+                sprintf("Could not check app version against GitHub:\n %s\n",ME.message)
             end %try
         end %End function: versioncheck
 
@@ -1654,7 +1655,13 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % clear the contents of currently selected cell(s) and the
             % corresponding cell(s) in the corresponding path columns
 
+
+            if isempty(app.UITable.Selection)
+                return
+            end
+
             indices = app.UITable.Selection;
+
 
             for selected_cell = 1:size(indices,1)
                 selected_row = indices(selected_cell,1);
@@ -1673,9 +1680,15 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         function ClearRowsMenuSelected(app, event)
             % clear contents of currently selected row(s). This actually
             % deletes the entire row from the UITable.
-            
+
+            if isempty(app.UITable.Selection)
+                return
+            end
+
+
             indices = app.UITable.Selection;
 
+            
             % remove any 'duplicate' rows caused by the selection spanning
             % multiple columns in the same row
             %- This also sorts the row indices into ascending order
@@ -1694,6 +1707,11 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         % Menu selected function: ClearColumns
         function ClearColumnsMenuSelected(app, event)
             % clear contents of the currently selected column(s).
+
+
+            if isempty(app.UITable.Selection)
+                return
+            end
 
             % remove any 'duplicate' columns caused by the selection spanning
             % multiple rows in the same column
@@ -1723,6 +1741,10 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         function ClearInvalidFilesSelected(app, event)
            % clear all of the cells in the UITable that do not have valid
            % file paths.
+
+           if isempty(app.UITable.Data)
+                return
+           end
 
            table_rows = size(app.UITable.Data,1);
            table_cols = 3; %only need to look at first 3 columns
@@ -2586,6 +2608,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create SegmentationScalingSliderLabel
             app.SegmentationScalingSliderLabel = uilabel(app.OutputImageScalingTab);
             app.SegmentationScalingSliderLabel.HorizontalAlignment = 'right';
+            app.SegmentationScalingSliderLabel.Enable = 'off';
             app.SegmentationScalingSliderLabel.Position = [38 167 84 28];
             app.SegmentationScalingSliderLabel.Text = {'Segmentation '; 'Scaling'};
 
@@ -2595,6 +2618,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.SegmentationScalingSlider.MajorTicks = [12.5 25 50 100];
             app.SegmentationScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
             app.SegmentationScalingSlider.MinorTicks = [];
+            app.SegmentationScalingSlider.Enable = 'off';
             app.SegmentationScalingSlider.Tooltip = {'Set the scaling factor used when generating the output tumor segmentation map. Default = 1/2'};
             app.SegmentationScalingSlider.Position = [134 183 150 3];
             app.SegmentationScalingSlider.Value = 50;
@@ -2619,6 +2643,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create SegmentationImageCheckBox
             app.SegmentationImageCheckBox = uicheckbox(app.OutputImageScalingTab);
+            app.SegmentationImageCheckBox.Enable = 'off';
             app.SegmentationImageCheckBox.Tooltip = {'When checked, an output image with individual tumors segmented and labeled will be generated. The tumor labeling process can take some time in large images.'};
             app.SegmentationImageCheckBox.Text = '';
             app.SegmentationImageCheckBox.Position = [4 176 25 22];
@@ -2678,7 +2703,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create Hyperlink
             app.Hyperlink = uihyperlink(app.LinksTab);
             app.Hyperlink.URL = 'https://github.com/jlockhar/GLASS-AI';
-            app.Hyperlink.Position = [11 202 170 22];
+            app.Hyperlink.Position = [11 201 170 22];
             app.Hyperlink.Text = 'GLASS-AI GitHub Repository';
 
             % Create Hyperlink_2
@@ -2689,8 +2714,14 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create Hyperlink_3
             app.Hyperlink_3 = uihyperlink(app.LinksTab);
             app.Hyperlink_3.URL = 'https://www.florescancerlab.org/';
-            app.Hyperlink_3.Position = [11 180 143 22];
+            app.Hyperlink_3.Position = [12 157 143 22];
             app.Hyperlink_3.Text = 'The Flores Lab @ Moffitt';
+
+            % Create Hyperlink_4
+            app.Hyperlink_4 = uihyperlink(app.LinksTab);
+            app.Hyperlink_4.URL = 'https://github.com/jlockhar/GLASS-AI-annotation-editor';
+            app.Hyperlink_4.Position = [11 179 277 22];
+            app.Hyperlink_4.Text = 'GLASS-AI Annotation Editor GitHub Repository';
 
             % Create AppTitle
             app.AppTitle = uilabel(app.UIFigure);
