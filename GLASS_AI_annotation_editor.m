@@ -128,18 +128,18 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         UITableContextMenu              matlab.ui.container.ContextMenu
         UnselectMenu                    matlab.ui.container.Menu
         ClearMenu                       matlab.ui.container.Menu
+        ClearSelection                  matlab.ui.container.Menu
+        ClearRows                       matlab.ui.container.Menu
         ClearColumns                    matlab.ui.container.Menu
         ClearInvalidFiles               matlab.ui.container.Menu
         ChangeFolderMenu                matlab.ui.container.Menu
         PopulatefromFolderMenu          matlab.ui.container.Menu
-        ClearRows                       matlab.ui.container.Menu
-        ClearSelection                  matlab.ui.container.Menu
     end
 
 
     properties (Access = private)
         % App info %
-        GLASSAI_EDITOR_APP_VERSION = '1.0'
+        GLASSAI_EDITOR_APP_VERSION = '1.2'
         
         % Folder navigation %
         RESOURCE_DIR_PATH
@@ -233,6 +233,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                 end
 
                 % mark current row in UITable as in progress
+                scroll(app.UITable,"row",input_file)
                 addStyle(app.UITable,running_style,"row",input_file)
                 drawnow
 
@@ -279,6 +280,14 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                 % segment tumors
                 segmentedTumorMask = segmentindividualtumors(app,classifications_adjusted);
                 sprintf("Segmented individual tumors")
+
+                % create label mask of individual tumors to matfile
+                tumorLabelMask = maketumorlabelmask(app, segmentedTumorMask);
+                % save new tumor grade map to as a .tif
+                tumorLabelMaskFilePath = fullfile(app.AI_CLASSIFICATION_FILE_PATH,strcat(app.IMAGE_NAME,"_tumor_labels_adjusted.mat"));
+                [tumorLabelMaskFilePath, app.APPLY_FOR_ALL_OUTPUTS_FOR_CURRENT_IMAGE] = promptreplacexistingfile(app,tumorLabelMaskFilePath,app.APPLY_FOR_ALL_OUTPUTS_FOR_CURRENT_IMAGE,".mat","_new.mat");
+                save(tumorLabelMaskFilePath,'tumorLabelMask','-v7.3');
+                clear tumorLabelMask %free up memory
 
                 %- TODO: add option to output tumor segmentation map overlaid
                 %-       on the input image.
@@ -839,7 +848,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             for annotation_object = 1:annotation_object_count
                 % get annotation name
                 grades(annotation_object) = convertCharsToStrings(annotations_json.features(annotation_object).properties.classification.name);
-                
+                    
                 % check if annotation is a simple or complex shape
                 %- simple shapes (no holes) coordinates are doubles
                 %- complex shapes (with holes) coordinates are cells
@@ -859,19 +868,58 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                     annotation_polys(annotation_object) = XY;
                 
                 elseif class(annotations_json.features(annotation_object).geometry.coordinates) == "cell"
-                    % annotation is a complex shape
+                    % annotation is a complex shape or multipolygon
+                    %- each shape is stored in a separate cell within
+                    %- `coordinates`      
+                    %-- holes in complex shapes are generated when
+                    %-- converted to polygons
+                    %-- Multipolygon annotations are read as 1-by-N-by-2
+                    %-- doubles for some reason...
 
-                    % concat the shapes together
-                    %- holes in complex shapes are generated when
-                    %- converted to polygons
-                    XY = vertcat(annotations_json.features(annotation_object).geometry.coordinates{:});
+                    %check for cells nested in cell array
+                    hasNestedCells = any(cellfun(@(x) matches(class(x),"cell"),annotations_json.features(annotation_object).geometry.coordinates));
+                    
+                    if hasNestedCells
+                        % vertcat() will flatten cell arrays within cell arrays
+                        XY = vertcat(annotations_json.features(annotation_object).geometry.coordinates{:});
+                    else
+                        XY = annotations_json.features(annotation_object).geometry.coordinates;
+                    end
+
+                    % make dimensions of each shape N-by-2
+                    XY = cellfun(@(x) reshape(x,[],2), XY, 'UniformOutput', false);                    
+                    
                     %rescale coordinates if using scaled image
-                    XY = XY * image_info.Scale;
+                    XY = cellfun(@(x) times(x,image_info.Scale),XY,'UniformOutput',false);
                     
                     % store coordinates for annotation in a cell
                     annotation_polys(annotation_object) = {XY};
                 end % if class(annotations_json.features(annotation_object).geometry.coordinates) == "double"
             end % for annotation_object = 1:annotation_object_count
+
+            % account for multipolygons by expanding `grades` with matching
+            % labels
+            cells_in_polys_inds = find(cellfun(@(x) matches(class(x),"cell"),annotation_polys));
+            % flip and transpose to use in for loop, starting from the last
+            % cell to prevent changing indices in later iterations
+            cells_in_polys_inds = transpose(flip(cells_in_polys_inds));
+            if size(cells_in_polys_inds,1)>0
+                for cell_ind = cells_in_polys_inds
+                    %get size of nested cell array, -1 to account for existing
+                    %cell in `annotation_polys`
+                    cell_size = size(annotation_polys{cell_ind},1)-1;
+                    grades_new = strings(1,size(grades,2)+cell_size);
+                    % add additional entries to `grades` after existing
+                    % entry at `cell_ind`
+                    grades_new(cell_ind+1:cell_ind+cell_size) = grades(cell_ind);
+                    % add back the existing entries in `grades` in the
+                    % blank spots
+                    grades_new(matches(grades_new,"")) = grades;
+                    grades = grades_new;
+                end
+                %expand `annotation_polys` to flatten cells
+                annotation_polys = vertcat(annotation_polys{:});
+            end
 
             % make polygons for each class
             G1_annotation_polys = annotation_polys(feval(app.GRADE1_SEARCH_METHOD,grades,app.GRADE1_SEARCH_VALUE));
@@ -1342,41 +1390,40 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
         % Code that executes after component creation
         function startupFcn(app)
-            %get starting directory to recall during development
-            if not(isdeployed)
-                % change directory to where .mlapp or .m file is located
-                cd(replace(mfilename('fullpath'),mfilename()+textBoundary('end'),''))
-                app.START_DIR = pwd;
-                %reveal copy to base button for debugging
-                app.CopytobaseButton.Visible = 'on';
-                app.CopytobaseButton.Enable = 'on';
-            end % if not(isdeployed)
+            % locate where the application is launched from
+            %- use mfilename("fullpath") to get location of launched file
+            %- strip off mfilename at the end of the char vector to get
+            %- folder that should contain the mlapp file and the
+            %- 'Resources' directory.
+            %-- This approach should work regardless of platform and
+            %-- deployment
+            mlapp_location = replace(mfilename('fullpath'),[filesep mfilename()]+textBoundary('end'),'');
 
-            app.VersionLabel.Text = sprintf("version %s",app.GLASSAI_EDITOR_APP_VERSION);
+            % set path to expected 'Resources' folder location
+            app.RESOURCE_DIR_PATH = fullfile(mlapp_location,"Resources");
 
-            %locate 'Resources' folder
-            if isdeployed 
-                if ismac
-                    % default ctf is within app contents, keep only path
-                    % before GLASS-AI_annotation_editor.app
-                    app.RESOURCE_DIR_PATH = fullfile(extractBefore(ctfroot,"GLASS_AI_annotation_editor.app"),"Resources");
-                elseif ispc
-                    %ctfroot is created in a temp folder. "Files required 
-                    %for your application to run" are copied into a temp
-                    %directory with the name of the application 
-                    % (i.e., GLASS_AI_annotation_editor) when it is launched.
-                    app.RESOURCE_DIR_PATH = fullfile(ctfroot,"GLASS_AI_annotation_editor","Resources");
-                end
-            else
-                app.RESOURCE_DIR_PATH = fullfile(pwd,"Resources");
-            end % if isdeployed 
 
             %validate RESOURCE_DIR_PATH by changing UI images
             %change window icon to GLASS-AI
             app.UIFigure.Icon = fullfile(app.RESOURCE_DIR_PATH,"UI Files","GLASS-AI editor icon_48.png");
             %add GLASS-AI logo to UI
-            app.AppLogo.ImageSource = fullfile(app.RESOURCE_DIR_PATH,"UI Files","GLASS-AI editor icon.png");
+            app.AppLogo.ImageSource = fullfile(app.RESOURCE_DIR_PATH,"UI Files","GLASS-AI Annotation Editor Splash.png");
             
+            %get starting directory to recall during development
+            if not(isdeployed)
+                % change directory to where .mlapp or .m file is located
+                cd(mlapp_location)
+                app.START_DIR = mlapp_location;
+                %reveal copy to base button for debugging
+                app.CopytobaseButton.Visible = 'on';
+                app.CopytobaseButton.Enable = 'on';
+                % show path to common folders
+                uialert(app.UIFigure,sprintf("ctfroot: %s\npwd: %s\nmfilename: %s\n",ctfroot,pwd,mlapp_location),"Current File Paths","Icon","info")
+            end % if not(isdeployed)
+
+            app.VersionLabel.Text = sprintf("version %s",app.GLASSAI_EDITOR_APP_VERSION);
+
+
             % change directory to user folder to make finding input/output
             % directories easier
             if ismac
@@ -2025,7 +2072,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.SmoothingMethodDropDown = uidropdown(app.TumorAnalysisTab);
             app.SmoothingMethodDropDown.Items = {'None', 'Mode', 'Hamming window (tumor only)', 'Median', 'Bilateral (slow)'};
             app.SmoothingMethodDropDown.ItemsData = {'smoothing_none', 'smoothing_mode', 'smoothing_hamming', 'smoothing_median', 'smoothing_bilateral', '', ''};
-            app.SmoothingMethodDropDown.Tooltip = {'Select a method for the smoothing kernel applied after grading. "Mode" is strongly recommended over other methods, as they are prone to creating artifacts from interpolating classes between regions of different classes.'; 'Default = "Mode"'};
+            app.SmoothingMethodDropDown.Tooltip = {'Select a method for the smoothing kernel applied after grading. "Mode" is strongly recommended over other methods, as they are prone to creating artifacts from interpolating classes between regions of different classes. Smoothing during GLASS-AI analysis is incorporated in the output classifcation Matfile.'; 'Default = "None"'};
             app.SmoothingMethodDropDown.Position = [225 197 72 22];
             app.SmoothingMethodDropDown.Value = 'smoothing_none';
 
