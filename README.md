@@ -1,6 +1,10 @@
 This app allows you to easily edit the classification output from GLASS-AI (https://github.com/jlockhar/GLASS-AI) by providing manual annotations from QuPath (https://qupath.github.io/).
 
 The main purpose is to mark regions to be excluded from analysis (e.g., non-lung tissue, debris in the image, etc.) and to incorporate manually segmented 'Grade 5' regions (which are not recognized by GLASS-AI).
+<p align="center">
+<img width="460" height="300" src="https://github.com/user-attachments/assets/e0b3affc-5e93-4eac-ab7c-0bfce9bb5926">
+</p>
+
 
 ## Installation
 Download and run the latest version of the GLASS-AI annotation editor installer for your operating system [here](https://moffitt.box.com/s/sjt4dz85ojwrskf0e8bxg00rcm98hn03). Installers are hosted on Box by Moffitt Cancer Center as the files are too large to upload to GitHub.
