@@ -139,7 +139,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
     properties (Access = private)
         % App info %
-        GLASSAI_EDITOR_APP_VERSION = '1.3.0'
+        GLASSAI_EDITOR_APP_VERSION = '1.2'
         
         % Folder navigation %
         RESOURCE_DIR_PATH
@@ -358,50 +358,54 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             %- property in this application
 
             try 
-
-                %% check app version on Github
-                % fetch current version of the app code from GitHub
-                gitData = webread("https://raw.githubusercontent.com/jlockhar/GLASS-AI-annotation-editor/refs/heads/main/GLASS_AI_annotation_editor.m");
-                % extract version property and parse into major minor patch
-                versionPattern = regexpPattern("(?<=GLASSAI_EDITOR_APP_VERSION \= \')([0-9\.]+)(?=\')");
-                gitVersion = matlab.mpm.Version(string(extract(gitData,versionPattern)));
-                % put GitHub version in app version tooltip
-                app.VersionLabel.Tooltip = sprintf("%s: %s\n","Current GLASS-AI annotation editor app version on GitHub",gitVersion.string);
-
-                %% check version of the local app
-                localVersion =  matlab.mpm.Version(app.GLASSAI_EDITOR_APP_VERSION);
-
-                %compare version numbers
-                if localVersion < gitVersion
-                    if localVersion.Major < gitVersion.Major
-                        app.UpdateAvailableButton.BackgroundColor = [1 0 0];
-                        app.UpdateAvailableButton.Tooltip = sprintf("A major version update (%s) is available for GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
-                        app.UpdateAvailableButton.Visible = "on";
-                        app.UpdateAvailableButton.Enable = "on";
-                    elseif localVersion.Minor < gitVersion.Minor
-                        app.UpdateAvailableButton.BackgroundColor = [1 1 0];
-                        app.UpdateAvailableButton.Tooltip = sprintf("A minor version update (%s) is available for GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
-                        app.UpdateAvailableButton.Visible = "on";
-                        app.UpdateAvailableButton.Enable = "on";
-                    elseif localVersion.Patch < gitVersion.Minor
-                        app.UpdateAvailableButton.BackgroundColor = [0 1 1];
-                        app.UpdateAvailableButton.Tooltip = sprintf("A patch update (%s) is available for GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
-                        app.UpdateAvailableButton.Visible = "on";
-                        app.UpdateAvailableButton.Enable = "on";
-                    else
-                        %this should not be reachable
-                    end
-
-                elseif localVersion > gitVersion
-                    app.UpdateAvailableButton.BackgroundColor = [0.5 0.5 0.5];
-                    app.UpdateAvailableButton.Tooltip = sprintf("This version of GLASS-AI annotation editor is ahead of the version on GitHub!");
-                    app.UpdateAvailableButton.Text = "DEV VERSION";
-                    app.UpdateAvailableButton.Visible = "on";
-                    app.UpdateAvailableButton.Enable = "off";
+                if strfind(app.GLASSAI_EDITOR_APP_VERSION,"dev")
+                    % do nothing
                 else
-                    % do nothing if the app is the current version on
-                    % GitHub
-                end
+                    %% check app version on Github
+                    % fetch current version of the app code from GitHub
+                    gitData = webread("https://raw.githubusercontent.com/jlockhar/GLASS-AI-annotation-editor/main/GLASS_AI_annotation_editor.m");
+                    % extract version property and parse into major minor patch
+                    versionPattern = regexpPattern("(?<=GLASSAI_EDITOR_APP_VERSION \= \')([0-9\.]+)(?=\')");
+                    gitVersion = string(extract(gitData,versionPattern));
+                    % put GitHub version in app version tooltip
+                    app.VersionLabel.Tooltip = sprintf("%s: %s\n","Current GLASS-AI annotation editor app version on GitHub",gitVersion);
+                    % parse major.minor.patch version from GitHub version
+                    gitVersionMajor = extract(gitVersion,regexpPattern("(?<=^)[0-9]+(?=\.)"));
+                    gitVersionMinor = extract(gitVersion,regexpPattern("(?<=^[0-9]+\.)[0-9]+(?=\.)"));
+                    gitVersionPatch = extract(gitVersion,regexpPattern("(?<=^[0-9]+\.[0-9]+\.)[0-9]+(?=$)"));
+
+                    %% check version of the local app
+                    % parse major.minor.patch version from local app
+                    appVersionMajor = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^)[0-9]+(?=\.)"));
+                    appVersionMinor = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^[0-9]+\.)[0-9]+(?=\.)"));
+                    appVersionPatch = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^[0-9]+\.[0-9]+\.)[0-9]+(?=$)"));
+
+                    %% compare version and prompt for update
+                    % compare version numbers
+                    majorUpdateAvailable = str2double(appVersionMajor) < str2double(gitVersionMajor);
+                    minorUpdateAvailable = ~majorUpdateAvailable & str2double(appVersionMinor) < str2double(gitVersionMinor);
+                    patchUpdateAvailable = ~majorUpdateAvailable & ~minorUpdateAvailable & str2double(appVersionPatch) < str2double(gitVersionPatch);
+
+                    % prompt user to update the app if local version is behind GitHub
+                    if majorUpdateAvailable
+                        app.UpdateAvailableButton.BackgroundColor = [1 0 0];
+                        app.UpdateAvailableButton.Tooltip = sprintf("A major version update (%s) is available for the GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
+                        app.UpdateAvailableButton.Visible = "on";
+                        app.UpdateAvailableButton.Enable = "on";
+                    elseif minorUpdateAvailable
+                        app.UpdateAvailableButton.BackgroundColor = [1 1 0];
+                        app.UpdateAvailableButton.Tooltip = sprintf("A minor version update (%s) is available for the GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
+                        app.UpdateAvailableButton.Visible = "on";
+                        app.UpdateAvailableButton.Enable = "on";
+                    elseif patchUpdateAvailable
+                        app.UpdateAvailableButton.BackgroundColor = [0 1 1];
+                        app.UpdateAvailableButton.Tooltip = sprintf("A patch update (%s) is available for the GLASS-AI annotation editor! Click to get the installer for the latest version.",gitVersion);
+                        app.UpdateAvailableButton.Visible = "on";
+                        app.UpdateAvailableButton.Enable = "on";
+                    else %app.GLASSAI_EDITOR_APP_VERSION == gitVersion
+                        %don't do anything if this is the latest version
+                    end
+                end %if strfind(app.GLASSAI_EDITOR_APP_VERSION,"dev")
             catch ME
                 app.VersionLabel.Tooltip = "Could not check app version on GitHub";
                 % report error in non-deployed environment
@@ -1450,7 +1454,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         % Button pushed function: SelectimagesButton
         function SelectImageButtonPushed(app, event)
             % prompt user to select input images
-            [new_file_name, new_file_path] = uigetfile({'*.svs;*.qptiff;*.tif;*.tiff;*.jpg;*.jpeg;*.png','Image Files (*.svs,*.qptiff,*.tif,*.tiff,*.jpg,*.jpeg,*.png)'},'Select input image(s)',app.LAST_SELECTED_DIR,MultiSelect='on');
+            [new_file_name, new_file_path] = uigetfile({'*.svs;*.tif;*.tiff;*.jpg;*.jpeg;*.png','Image Files (*.svs,*.tif,*.tiff,*.jpg,*.jpeg,*.png)'},'Select input image(s)',app.LAST_SELECTED_DIR,MultiSelect='on');
             
             if isequal(new_file_name, 0) % user canceled selection
                 return
@@ -1890,11 +1894,11 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                         end % if not(isempty(classifications_name))
 
                         %define image type search priority
-                        image_type_search_order = {'.svs' '.qptiff','.tif' '.tiff' '.jpeg' '.jpg' '.png'};
+                        image_type_search_order = {'.svs' '.tif' '.tif' '.jpeg' '.jpg' '.png'};
                         
                         %check for images matching search_name
-                        for image_type = 1:size(image_type_search_order,2)
-                            search_file = join([search_name image_type_search_order{image_type}],"");
+                        for image_type = 1:size(image_type_search_order,1)
+                            search_file = [search_name image_type_search_order{image_type}];
 
                             found_file = isfile(fullfile(new_directory,search_file));
 
@@ -2643,7 +2647,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.GradeMapScalingSlider.Limits = [12.5 100];
             app.GradeMapScalingSlider.MajorTicks = [12.5 25 50 100];
             app.GradeMapScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.GradeMapScalingSlider.MinorTicksMode = 'manual';
+            app.GradeMapScalingSlider.MinorTicks = [];
             app.GradeMapScalingSlider.Tooltip = {'Set the scaling factor used when generating the output tumor grade map. Default = 1/4'};
             app.GradeMapScalingSlider.Position = [134 236 150 3];
             app.GradeMapScalingSlider.Value = 25;
@@ -2660,7 +2664,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.SegmentationScalingSlider.Limits = [12.5 100];
             app.SegmentationScalingSlider.MajorTicks = [12.5 25 50 100];
             app.SegmentationScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.SegmentationScalingSlider.MinorTicksMode = 'manual';
+            app.SegmentationScalingSlider.MinorTicks = [];
             app.SegmentationScalingSlider.Enable = 'off';
             app.SegmentationScalingSlider.Tooltip = {'Set the scaling factor used when generating the output tumor segmentation map. Default = 1/2'};
             app.SegmentationScalingSlider.Position = [134 183 150 3];
@@ -2678,7 +2682,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.StainNormalizedImageScalingSlider.Limits = [12.5 100];
             app.StainNormalizedImageScalingSlider.MajorTicks = [12.5 25 50 100];
             app.StainNormalizedImageScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.StainNormalizedImageScalingSlider.MinorTicksMode = 'manual';
+            app.StainNormalizedImageScalingSlider.MinorTicks = [];
             app.StainNormalizedImageScalingSlider.Enable = 'off';
             app.StainNormalizedImageScalingSlider.Tooltip = {'Set the scaling factor used when generating the output stain normalized image. Default = FULL'};
             app.StainNormalizedImageScalingSlider.Position = [135 137 150 3];
@@ -2686,8 +2690,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create SegmentationImageCheckBox
             app.SegmentationImageCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.SegmentationImageCheckBox.Tooltip = {'When checked, an output image with individual tumors segmented and labeled will be generated. The tumor labeling process can take some time in large images.'};
             app.SegmentationImageCheckBox.Enable = 'off';
+            app.SegmentationImageCheckBox.Tooltip = {'When checked, an output image with individual tumors segmented and labeled will be generated. The tumor labeling process can take some time in large images.'};
             app.SegmentationImageCheckBox.Text = '';
             app.SegmentationImageCheckBox.Position = [4 176 25 22];
 
@@ -2703,7 +2707,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.ConfidenceMapScalingSlider.Limits = [12.5 100];
             app.ConfidenceMapScalingSlider.MajorTicks = [12.5 25 50 100];
             app.ConfidenceMapScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.ConfidenceMapScalingSlider.MinorTicksMode = 'manual';
+            app.ConfidenceMapScalingSlider.MinorTicks = [];
             app.ConfidenceMapScalingSlider.Enable = 'off';
             app.ConfidenceMapScalingSlider.Tooltip = {'Set the scaling factor used when generating the maximum class confidence/probability map. '; 'Default = 1/4'};
             app.ConfidenceMapScalingSlider.Position = [137 86 150 3];
@@ -2711,8 +2715,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create ConfidenceMapCheckBox
             app.ConfidenceMapCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.ConfidenceMapCheckBox.Tooltip = {'When checked, outputs a map of predicted class confidence/probabiilty for GLASS-AI''s prediction. A .mat file containing the activation weights of each class for each pixel will also be created.'};
             app.ConfidenceMapCheckBox.Enable = 'off';
+            app.ConfidenceMapCheckBox.Tooltip = {'When checked, outputs a map of predicted class confidence/probabiilty for GLASS-AI''s prediction. A .mat file containing the activation weights of each class for each pixel will also be created.'};
             app.ConfidenceMapCheckBox.Text = '';
             app.ConfidenceMapCheckBox.Position = [5 78 25 22];
 
@@ -2734,8 +2738,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create NormalizedImageOutputCheckBox
             app.NormalizedImageOutputCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.NormalizedImageOutputCheckBox.Tooltip = {'When checked, saves the stain normalized image as .tif file in the output folder.'};
             app.NormalizedImageOutputCheckBox.Enable = 'off';
+            app.NormalizedImageOutputCheckBox.Tooltip = {'When checked, saves the stain normalized image as .tif file in the output folder.'};
             app.NormalizedImageOutputCheckBox.Text = '';
             app.NormalizedImageOutputCheckBox.Position = [5 130 25 22];
 
@@ -2819,7 +2823,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.CopytobaseButton.ButtonPushedFcn = createCallbackFcn(app, @CopytobaseButtonPushed, true);
             app.CopytobaseButton.Enable = 'off';
             app.CopytobaseButton.Visible = 'off';
-            app.CopytobaseButton.Position = [392 381 100 23];
+            app.CopytobaseButton.Position = [408 381 100 23];
             app.CopytobaseButton.Text = 'Copy to base';
 
             % Create UITableContextMenu
