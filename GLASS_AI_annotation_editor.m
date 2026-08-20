@@ -139,7 +139,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
     properties (Access = private)
         % App info %
-        GLASSAI_EDITOR_APP_VERSION = '1.2'
+        GLASSAI_EDITOR_APP_VERSION = '1.3.0'
         
         % Folder navigation %
         RESOURCE_DIR_PATH
@@ -358,33 +358,46 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             %- property in this application
 
             try 
-                if strfind(app.GLASSAI_EDITOR_APP_VERSION,"dev")
-                    % do nothing
-                else
+
                     %% check app version on Github
                     % fetch current version of the app code from GitHub
                     gitData = webread("https://raw.githubusercontent.com/jlockhar/GLASS-AI-annotation-editor/main/GLASS_AI_annotation_editor.m");
                     % extract version property and parse into major minor patch
                     versionPattern = regexpPattern("(?<=GLASSAI_EDITOR_APP_VERSION \= \')([0-9\.]+)(?=\')");
-                    gitVersion = string(extract(gitData,versionPattern));
-                    % put GitHub version in app version tooltip
-                    app.VersionLabel.Tooltip = sprintf("%s: %s\n","Current GLASS-AI annotation editor app version on GitHub",gitVersion);
-                    % parse major.minor.patch version from GitHub version
-                    gitVersionMajor = extract(gitVersion,regexpPattern("(?<=^)[0-9]+(?=\.)"));
-                    gitVersionMinor = extract(gitVersion,regexpPattern("(?<=^[0-9]+\.)[0-9]+(?=\.)"));
-                    gitVersionPatch = extract(gitVersion,regexpPattern("(?<=^[0-9]+\.[0-9]+\.)[0-9]+(?=$)"));
+                    % assume single number is major version
+                    majorPattern = regexpPattern("(?<=^)[0-9]+(?=\.|$)");
+                    % do not require a patch version (i.e., major.minor)
+                    minorPattern = regexpPattern("(?<=^[0-9]+\.)[0-9]+(?=\.|$)");
+                    % allow for suffix flags after patch version
+                    patchPattern = regexpPattern("(?<=^[0-9]+\.[0-9]+\.)[0-9]+(?=$|\-)");
 
+                    gitVersion = char(extract(gitData,versionPattern));
+                    % put GitHub version in app version tooltip
+                    app.VersionLabel.Tooltip = sprintf("%s: %s","Current GLASS-AI annotation editor app version on GitHub",gitVersion);
+
+                    % parse major.minor.patch version from GitHub version
+                    % replace zero if no subversion is found
+                    gitVersionMajor = str2double(extract(gitVersion,majorPattern));
+                    if isempty(gitVersionMajor); gitVersionMajor = 0 ; end
+                    gitVersionMinor = str2double(extract(gitVersion,minorPattern));
+                    if isempty(gitVersionMinor); gitVersionMinor = 0 ;  end
+                    gitVersionPatch = str2double(extract(gitVersion,patchPattern));
+                    if isempty(gitVersionPatch); gitVersionPatch = 0; end
+                    
                     %% check version of the local app
                     % parse major.minor.patch version from local app
-                    appVersionMajor = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^)[0-9]+(?=\.)"));
-                    appVersionMinor = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^[0-9]+\.)[0-9]+(?=\.)"));
-                    appVersionPatch = extract(app.GLASSAI_EDITOR_APP_VERSION,regexpPattern("(?<=^[0-9]+\.[0-9]+\.)[0-9]+(?=$)"));
+                    appVersionMajor = str2double(extract(app.GLASSAI_EDITOR_APP_VERSION,majorPattern));
+                    if isempty(appVersionMajor); gitVersionMajor = 0 ; end
+                    appVersionMinor = str2double(extract(app.GLASSAI_EDITOR_APP_VERSION,minorPattern));
+                    if isempty(appVersionMinor); gitVersionMajor = 0 ; end
+                    appVersionPatch = str2double(extract(app.GLASSAI_EDITOR_APP_VERSION,patchPattern));
+                    if isempty(appVersionPatch); gitVersionMajor = 0 ; end
 
                     %% compare version and prompt for update
                     % compare version numbers
-                    majorUpdateAvailable = str2double(appVersionMajor) < str2double(gitVersionMajor);
-                    minorUpdateAvailable = ~majorUpdateAvailable & str2double(appVersionMinor) < str2double(gitVersionMinor);
-                    patchUpdateAvailable = ~majorUpdateAvailable & ~minorUpdateAvailable & str2double(appVersionPatch) < str2double(gitVersionPatch);
+                    majorUpdateAvailable = appVersionMajor < gitVersionMajor;
+                    minorUpdateAvailable = all([~majorUpdateAvailable appVersionMinor < gitVersionMinor]);
+                    patchUpdateAvailable = all([~majorUpdateAvailable ~minorUpdateAvailable appVersionPatch < gitVersionPatch]);
 
                     % prompt user to update the app if local version is behind GitHub
                     if majorUpdateAvailable
@@ -405,7 +418,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                     else %app.GLASSAI_EDITOR_APP_VERSION == gitVersion
                         %don't do anything if this is the latest version
                     end
-                end %if strfind(app.GLASSAI_EDITOR_APP_VERSION,"dev")
             catch ME
                 app.VersionLabel.Tooltip = "Could not check app version on GitHub";
                 % report error in non-deployed environment
@@ -1454,7 +1466,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         % Button pushed function: SelectimagesButton
         function SelectImageButtonPushed(app, event)
             % prompt user to select input images
-            [new_file_name, new_file_path] = uigetfile({'*.svs;*.tif;*.tiff;*.jpg;*.jpeg;*.png','Image Files (*.svs,*.tif,*.tiff,*.jpg,*.jpeg,*.png)'},'Select input image(s)',app.LAST_SELECTED_DIR,MultiSelect='on');
+            [new_file_name, new_file_path] = uigetfile({'*.svs;*.qptiff;*.tif;*.tiff;*.jpg;*.jpeg;*.png','Image Files (*.svs,*.qptiff,*.tif,*.tiff,*.jpg,*.jpeg,*.png)'},'Select input image(s)',app.LAST_SELECTED_DIR,MultiSelect='on');
             
             if isequal(new_file_name, 0) % user canceled selection
                 return
@@ -1472,7 +1484,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         % Button pushed function: SelectGLASSAIclassificationsButton
         function SelectGLASSAIClassificationButtonPushed(app, event)
             % prompt user to select GLASS-AI classification files
-            [new_file_name, new_file_path] = uigetfile({'*classes.mat'},'Select GLASS-AI classification file',app.LAST_SELECTED_DIR,MultiSelect='on');
+            [new_file_name, new_file_path] = uigetfile({'*_classes.mat'},'Select GLASS-AI classification file',app.LAST_SELECTED_DIR,MultiSelect='on');
 
             if isequal(new_file_name, 0) % user canceled selection
                 return
@@ -1887,18 +1899,18 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                 switch selected_column
                     case 1 %get image files
                         % define name to search
-                        if not(isempty(classifications_name))
-                            search_name = classifications_name;
-                        elseif not(isempty(annotations_name))
+                        if not(isempty(annotations_name))
                             search_name = annotations_name;
+                        elseif not(isempty(classifications_name))
+                            search_name = classifications_name;
                         end % if not(isempty(classifications_name))
 
                         %define image type search priority
-                        image_type_search_order = {'.svs' '.tif' '.tif' '.jpeg' '.jpg' '.png'};
+                        image_type_search_order = {'.svs' '.qptiff' '.tif' '.tif' '.jpeg' '.jpg' '.png'};
                         
                         %check for images matching search_name
-                        for image_type = 1:size(image_type_search_order,1)
-                            search_file = [search_name image_type_search_order{image_type}];
+                        for image_type = 1:size(image_type_search_order,2)
+                            search_file = join([search_name image_type_search_order{image_type}],"");
 
                             found_file = isfile(fullfile(new_directory,search_file));
 
@@ -1913,13 +1925,13 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
                     case 2 %get GLASS-AI classification files
                         %define name to search
-                        if not(isempty(image_name))
-                            search_name = image_name;
-                        elseif not(isempty(annotations_name))
+                        if not(isempty(annotations_name))
                             search_name = annotations_name;
+                        elseif not(isempty(image_name))
+                            search_name = image_name;
                         end % if not(isempty(image_name))
 
-                        search_file = [search_name '_classes.mat'];
+                        search_file = join([search_name '_classes.mat'],"");
                         found_file = isfile(fullfile(new_directory,search_file));
                         if found_file
                             app.UITable.Data{selected_rows(table_row),selected_column} = search_file;
@@ -1936,7 +1948,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                             search_name = classifications_name;
                         end % if not(isempty(image_name))
 
-                        search_file = [search_name '.geojson'];
+                        search_file = join([search_name '.geojson'],"");
                         found_file = isfile(fullfile(new_directory,search_file));
                         if found_file
                             app.UITable.Data{selected_rows(table_row),selected_column} = search_file;
@@ -2884,14 +2896,26 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         % Construct app
         function app = GLASS_AI_annotation_editor
 
-            % Create UIFigure and components
-            createComponents(app)
+            runningApp = getRunningApp(app);
 
-            % Register the app with App Designer
-            registerApp(app, app.UIFigure)
+            % Check for running singleton app
+            if isempty(runningApp)
 
-            % Execute the startup function
-            runStartupFcn(app, @startupFcn)
+                % Create UIFigure and components
+                createComponents(app)
+
+                % Register the app with App Designer
+                registerApp(app, app.UIFigure)
+
+                % Execute the startup function
+                runStartupFcn(app, @startupFcn)
+            else
+
+                % Focus the running singleton app
+                figure(runningApp.UIFigure)
+
+                app = runningApp;
+            end
 
             if nargout == 0
                 clear app
