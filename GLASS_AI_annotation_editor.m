@@ -142,7 +142,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
         GLASSAI_EDITOR_APP_VERSION = '1.3.0'
         
         % Folder navigation %
-        RESOURCE_DIR_PATH
         START_DIR %only used in non-deployed environment
         LAST_SELECTED_DIR
 
@@ -1390,21 +1389,16 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % locate where the application is launched from
             %- use mfilename("fullpath") to get location of launched file
             %- strip off mfilename at the end of the char vector to get
-            %- folder that should contain the mlapp file and the
-            %- 'Resources' directory.
+            %- folder that should contain the mlapp file
             %-- This approach should work regardless of platform and
             %-- deployment
             mlapp_location = replace(mfilename('fullpath'),[filesep mfilename()]+textBoundary('end'),'');
 
-            % set path to expected 'Resources' folder location
-            app.RESOURCE_DIR_PATH = fullfile(mlapp_location,"resources");
-
-
             %validate RESOURCE_DIR_PATH by changing UI images
             %change window icon to GLASS-AI
-            app.UIFigure.Icon = fullfile(app.RESOURCE_DIR_PATH,"UI Files","GLASS-AI editor icon_48.png");
+            app.UIFigure.Icon = fullfile(mlapp_location,"GLASS-AI Annotation Editor Splash.png");
             %add GLASS-AI logo to UI
-            app.AppLogo.ImageSource = fullfile(app.RESOURCE_DIR_PATH,"UI Files","GLASS-AI Annotation Editor Splash.png");
+            app.AppLogo.ImageSource = fullfile(mlapp_location,"GLASS-AI Annotation Editor Splash.png");
             
             %get starting directory to recall during development
             if not(isdeployed)
@@ -2769,6 +2763,9 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create AppTitle
             app.AppTitle = uilabel(app.UIFigure);
             app.AppTitle.WordWrap = 'on';
+            app.AppTitle.FontName = 'Arial';
+            app.AppTitle.FontSize = 18;
+            app.AppTitle.FontWeight = 'bold';
             app.AppTitle.Position = [87 368 247 50];
             app.AppTitle.Text = 'GLASS-AI Annotation Editor';
 
@@ -2782,6 +2779,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create AppLogo
             app.AppLogo = uiimage(app.UIFigure);
             app.AppLogo.Position = [3 370 88 45];
+            app.AppLogo.ImageSource = 'GLASS-AI Annotation Editor Splash.png';
 
             % Create UpdateAvailableButton
             app.UpdateAvailableButton = uibutton(app.UIFigure, 'push');
