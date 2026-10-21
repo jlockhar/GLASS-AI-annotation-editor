@@ -139,7 +139,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
     properties (Access = private)
         % App info %
-        GLASSAI_EDITOR_APP_VERSION = '1.3.0'
+        GLASSAI_EDITOR_APP_VERSION = '1.4.0'
         
         % Folder navigation %
         RESOURCE_DIR_PATH
@@ -288,9 +288,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
                 [tumorLabelMaskFilePath, app.APPLY_FOR_ALL_OUTPUTS_FOR_CURRENT_IMAGE] = promptreplacexistingfile(app,tumorLabelMaskFilePath,app.APPLY_FOR_ALL_OUTPUTS_FOR_CURRENT_IMAGE,".mat","_new.mat");
                 save(tumorLabelMaskFilePath,'tumorLabelMask','-v7.3');
                 clear tumorLabelMask %free up memory
-
-                %- TODO: add option to output tumor segmentation map overlaid
-                %-       on the input image.
 
                 % analyze individual tumors
                 individualTumorStats = individualtumoranalysis(app,classifications_adjusted,segmentedTumorMask);
@@ -848,145 +845,133 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % read in annotation file
             annotations_json = jsondecode(fileread(fullfile(app.MANUAL_ANNOTATION_FILE_PATH,app.MANUAL_ANNOTATION_FILE_NAME)));
+            imageSize = [image_info.Height, image_info.Width];
 
-            % get the number of annotations in annotation file
-            annotation_object_count = numel(annotations_json.features);
-
-            % inititalize storage variables
-            grades = string(zeros(1,annotation_object_count)); %store annotation name
-            annotation_polys = cell(annotation_object_count,1); %store annotation mask
-
-            % iterate over each annotation in annotation file
-            for annotation_object = 1:annotation_object_count
-                % get annotation name
-                grades(annotation_object) = convertCharsToStrings(annotations_json.features(annotation_object).properties.classification.name);
-                    
-                % check if annotation is a simple or complex shape
-                %- simple shapes (no holes) coordinates are doubles
-                %- complex shapes (with holes) coordinates are cells
-                %- TODO: add support for multipolygon (discontinous shapes)                
-                if class(annotations_json.features(annotation_object).geometry.coordinates) == "double"
-                    % annotation is a simple shape
-                    % get vertices for annotation
-                    xVerts = annotations_json.features(annotation_object).geometry.coordinates(:,:,1);
-                    yVerts = annotations_json.features(annotation_object).geometry.coordinates(:,:,2);
-
-                    % rescale coordinates if using scaled image
-                    xVerts = xVerts * image_info.Scale;
-                    yVerts = yVerts * image_info.Scale;
-                    
-                    % store coordinates for annotation in a cell
-                    XY = {[xVerts(:), yVerts(:)]};
-                    annotation_polys(annotation_object) = XY;
-                
-                elseif class(annotations_json.features(annotation_object).geometry.coordinates) == "cell"
-                    % annotation is a complex shape or multipolygon
-                    %- each shape is stored in a separate cell within
-                    %- `coordinates`      
-                    %-- holes in complex shapes are generated when
-                    %-- converted to polygons
-                    %-- Multipolygon annotations are read as 1-by-N-by-2
-                    %-- doubles for some reason...
-
-                    %check for cells nested in cell array
-                    hasNestedCells = any(cellfun(@(x) matches(class(x),"cell"),annotations_json.features(annotation_object).geometry.coordinates));
-                    
-                    if hasNestedCells
-                        % vertcat() will flatten cell arrays within cell arrays
-                        XY = vertcat(annotations_json.features(annotation_object).geometry.coordinates{:});
-                    else
-                        XY = annotations_json.features(annotation_object).geometry.coordinates;
-                    end
-
-                    % make dimensions of each shape N-by-2
-                    XY = cellfun(@(x) reshape(x,[],2), XY, 'UniformOutput', false);                    
-                    
-                    %rescale coordinates if using scaled image
-                    XY = cellfun(@(x) times(x,image_info.Scale),XY,'UniformOutput',false);
-                    
-                    % store coordinates for annotation in a cell
-                    annotation_polys(annotation_object) = {XY};
-                end % if class(annotations_json.features(annotation_object).geometry.coordinates) == "double"
-            end % for annotation_object = 1:annotation_object_count
-
-            % account for multipolygons by expanding `grades` with matching
-            % labels
-            cells_in_polys_inds = find(cellfun(@(x) matches(class(x),"cell"),annotation_polys));
-            % flip and transpose to use in for loop, starting from the last
-            % cell to prevent changing indices in later iterations
-            cells_in_polys_inds = transpose(flip(cells_in_polys_inds));
-            if size(cells_in_polys_inds,1)>0
-                for cell_ind = cells_in_polys_inds
-                    %get size of nested cell array, -1 to account for existing
-                    %cell in `annotation_polys`
-                    cell_size = size(annotation_polys{cell_ind},1)-1;
-                    grades_new = strings(1,size(grades,2)+cell_size);
-                    % add additional entries to `grades` after existing
-                    % entry at `cell_ind`
-                    grades_new(cell_ind+1:cell_ind+cell_size) = grades(cell_ind);
-                    % add back the existing entries in `grades` in the
-                    % blank spots
-                    grades_new(matches(grades_new,"")) = grades;
-                    grades = grades_new;
-                end
-                %expand `annotation_polys` to flatten cells
-                annotation_polys = vertcat(annotation_polys{:});
+            % QuPath can export as a FeatureCollection or a single Feature
+            if isfield(annotations_json, 'features')
+                features = annotations_json.features;
+            else
+                features = annotations_json; % Single feature array
             end
 
-            % make polygons for each class
-            G1_annotation_polys = annotation_polys(feval(app.GRADE1_SEARCH_METHOD,grades,app.GRADE1_SEARCH_VALUE));
-            G2_annotation_polys = annotation_polys(feval(app.GRADE2_SEARCH_METHOD,grades,app.GRADE2_SEARCH_VALUE));
-            G3_annotation_polys = annotation_polys(feval(app.GRADE3_SEARCH_METHOD,grades,app.GRADE3_SEARCH_VALUE));
-            G4_annotation_polys = annotation_polys(feval(app.GRADE4_SEARCH_METHOD,grades,app.GRADE4_SEARCH_VALUE));
-            G5_annotation_polys = annotation_polys(feval(app.GRADE5_SEARCH_METHOD,grades,app.GRADE5_SEARCH_VALUE));
-            NormAlv_annotation_polys = annotation_polys(feval(app.ALVEOLI_SEARCH_METHOD,grades,app.ALVEOLI_SEARCH_VALUE));
-            NormAir_annotation_polys = annotation_polys(feval(app.AIRWAY_SEARCH_METHOD,grades,app.AIRWAY_SEARCH_VALUE));
-            Ignore_annotation_polys = annotation_polys(feval(app.IGNORE_SEARCH_METHOD,grades,app.IGNORE_SEARCH_VALUE));
-            
             % load GLASS-AI annotations
             if(isfile(fullfile(app.AI_CLASSIFICATION_FILE_PATH,app.AI_CLASSIFICATION_FILE_NAME)))
                 tmpC  = struct2cell(load(fullfile(app.AI_CLASSIFICATION_FILE_PATH,app.AI_CLASSIFICATION_FILE_NAME)));
                 annotation_mask = tmpC{1};
                 % store background pixel indices to restore later
-                background_mask = annotation_mask == 7;
+                background_mask = annotation_mask == 7 | annotation_mask == 0;
             else
                 annotation_mask = zeros(image_info.Height, image_info.Width,'uint8')+7;
                 background_mask = [];
             end % if(isfile(fullfile(app.AI_CLASSIFICATION_FILE_PATH,app.AI_CLASSIFICATION_FILE_NAME)))
 
-            % make masks from polys
-            %- normal tissue masks
-            NormAlv_mask = mpoly2mask(NormAlv_annotation_polys,[image_info.Height, image_info.Width]);
+            %process geojson features for each class
+            %- normal lung masks
+            NormAlv_mask = processFilteredGeoJSON(app,features, imageSize, app.ALVEOLI_SEARCH_METHOD,app.ALVEOLI_SEARCH_VALUE);
             annotation_mask(NormAlv_mask) = 5;
             clear NormAlv_mask
-            NormAir_mask = mpoly2mask(NormAir_annotation_polys,[image_info.Height, image_info.Width]);
+            NormAir_mask = processFilteredGeoJSON(app,features, imageSize, app.AIRWAY_SEARCH_METHOD,app.AIRWAY_SEARCH_VALUE);
             annotation_mask(NormAir_mask) = 6;
             clear NormAir_mask
             %- tumor masks
-            G1_mask = mpoly2mask(G1_annotation_polys,[image_info.Height, image_info.Width]);
+            G1_mask = processFilteredGeoJSON(app,features, imageSize, app.GRADE1_SEARCH_METHOD,app.GRADE1_SEARCH_VALUE);
             annotation_mask(G1_mask) = 1;
             clear G1_mask
-            G2_mask = mpoly2mask(G2_annotation_polys,[image_info.Height, image_info.Width]);
+            G2_mask = processFilteredGeoJSON(app,features, imageSize, app.GRADE2_SEARCH_METHOD,app.GRADE2_SEARCH_VALUE);
             annotation_mask(G2_mask) = 2;
             clear G2_mask
-            G3_mask = mpoly2mask(G3_annotation_polys,[image_info.Height, image_info.Width]);
+            G3_mask = processFilteredGeoJSON(app,features, imageSize, app.GRADE3_SEARCH_METHOD,app.GRADE3_SEARCH_VALUE);
             annotation_mask(G3_mask) = 3;
             clear G3_mask
-            G4_mask = mpoly2mask(G4_annotation_polys,[image_info.Height, image_info.Width]);
+            G4_mask = processFilteredGeoJSON(app,features, imageSize, app.GRADE4_SEARCH_METHOD,app.GRADE4_SEARCH_VALUE);
             annotation_mask(G4_mask) = 4;
             clear G4_mask
-            G5_mask = mpoly2mask(G5_annotation_polys,[image_info.Height, image_info.Width]);
+            G5_mask = processFilteredGeoJSON(app,features, imageSize, app.GRADE5_SEARCH_METHOD,app.GRADE5_SEARCH_VALUE);
             annotation_mask(G5_mask) = 8;
             clear G5_mask
             %- ignore mask
-            ignore_mask = mpoly2mask(Ignore_annotation_polys,[image_info.Height, image_info.Width]);
+            ignore_mask = processFilteredGeoJSON(app,features, imageSize, app.IGNORE_SEARCH_METHOD,app.IGNORE_SEARCH_VALUE);
             annotation_mask(ignore_mask) = 0;
             clear ignore_mask
-            
+
             %fill background annotations back in
             annotation_mask(background_mask) = 7;
             clear background_mask
+
         end % function adjustannotationsfromQuPath
+
+        function classMask = processFilteredGeoJSON(app, features, imageSize, filterMethod, filterString)
+            % Iterate through all features to find matches for this class
+            classMask = false(imageSize);
+            for i = 1:numel(features)
+                % Verify classification match
+                if ~isfield(features(i).properties, 'classification') || ...
+                        isempty(features(i).properties.classification) || ...
+                        ~feval(filterMethod, features(i).properties.classification.name, filterString)
+                    continue;
+                end
+
+                geom = features(i).geometry;
+
+                % Process based on Geometry Type
+                switch geom.type
+                    case 'Polygon'
+                        % geom.coordinates is a cell array of rings
+                        classMask = classMask | processPolygonRings(app, geom.coordinates, imageSize);
+
+                    case 'MultiPolygon'
+                        % geom.coordinates is a nested cell array containing multiple polygons
+                        for p = 1:numel(geom.coordinates)
+                            classMask = classMask | processPolygonRings(app, geom.coordinates{p}, imageSize);
+                        end
+
+                    otherwise
+                        warning('Unsupported geometry type "%s" skipped.', geom.type);
+                end
+            end
+        end
+
+        function polyMask = processPolygonRings(~,rings, imageSize)
+            % Initialize mask for this specific polygon structure
+            polyMask = false(imageSize);
+
+            % Check if jsondecode parsed this as a cell array or a raw double matrix
+            if iscell(rings)
+                % --- COMPLEX CASE: Contains holes or varying structures ---
+
+                % The first ring (index 1) is ALWAYS the exterior boundary
+                exteriorCoords = rings{1};
+                x_ext = exteriorCoords(:, 1);
+                y_ext = exteriorCoords(:, 2);
+
+                % +1 to convert QuPath's 0-based pixel indexing to MATLAB's 1-based indexing
+                polyMask = poly2mask(x_ext + 1, y_ext + 1, imageSize(1), imageSize(2));
+
+                % Any subsequent rings (index 2+) are interior holes
+                if numel(rings) > 1
+                    for r = 2:numel(rings)
+                        holeCoords = rings{r};
+                        x_hole = holeCoords(:, 1);
+                        y_hole = holeCoords(:, 2);
+
+                        % Generate mask for the hole and punch it out using XOR
+                        holeMask = poly2mask(x_hole + 1, y_hole + 1, imageSize(1), imageSize(2));
+                        polyMask = xor(polyMask, holeMask);
+                    end
+                end
+
+            elseif isnumeric(rings)
+                % --- SIMPLE CASE: No holes, parsed as a double matrix ---
+                % Depending on QuPath formatting, a simple polygon could be Nx2 or 1xNx2.
+                % Squeeze out any unnecessary dimensions (e.g., 1xNx2 -> Nx2)
+                rings = squeeze(rings);
+
+                x_ext = rings(:, 1);
+                y_ext = rings(:, 2);
+
+                polyMask = poly2mask(x_ext + 1, y_ext + 1, imageSize(1), imageSize(2));
+            end
+        end
 
         function gradeImage = createtumorgradeimage(app,classifications)
             % make tumor grade image from classifications
@@ -2012,8 +1997,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create RunButton
             app.RunButton = uibutton(app.UIFigure, 'push');
             app.RunButton.ButtonPushedFcn = createCallbackFcn(app, @RunButtonPushed, true);
-            app.RunButton.FontSize = 18;
-            app.RunButton.FontWeight = 'bold';
             app.RunButton.Enable = 'off';
             app.RunButton.Tooltip = {'All files must be validated before the analysis can be run.'};
             app.RunButton.Position = [116 336 113 31];
@@ -2285,28 +2268,24 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create CLASSLabel
             app.CLASSLabel = uilabel(app.GradeMapColorsTab);
             app.CLASSLabel.HorizontalAlignment = 'center';
-            app.CLASSLabel.FontWeight = 'bold';
             app.CLASSLabel.Position = [11 224 109 22];
             app.CLASSLabel.Text = 'CLASS';
 
             % Create RLabel
             app.RLabel = uilabel(app.GradeMapColorsTab);
             app.RLabel.HorizontalAlignment = 'center';
-            app.RLabel.FontWeight = 'bold';
             app.RLabel.Position = [138 224 35 22];
             app.RLabel.Text = 'R';
 
             % Create GLabel
             app.GLabel = uilabel(app.GradeMapColorsTab);
             app.GLabel.HorizontalAlignment = 'center';
-            app.GLabel.FontWeight = 'bold';
             app.GLabel.Position = [183 224 35 22];
             app.GLabel.Text = 'G';
 
             % Create BLabel
             app.BLabel = uilabel(app.GradeMapColorsTab);
             app.BLabel.HorizontalAlignment = 'center';
-            app.BLabel.FontWeight = 'bold';
             app.BLabel.Position = [228 224 35 22];
             app.BLabel.Text = 'B';
 
@@ -2659,7 +2638,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.GradeMapScalingSlider.Limits = [12.5 100];
             app.GradeMapScalingSlider.MajorTicks = [12.5 25 50 100];
             app.GradeMapScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.GradeMapScalingSlider.MinorTicks = [];
+            app.GradeMapScalingSlider.MinorTicksMode = 'manual';
             app.GradeMapScalingSlider.Tooltip = {'Set the scaling factor used when generating the output tumor grade map. Default = 1/4'};
             app.GradeMapScalingSlider.Position = [134 236 150 3];
             app.GradeMapScalingSlider.Value = 25;
@@ -2676,7 +2655,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.SegmentationScalingSlider.Limits = [12.5 100];
             app.SegmentationScalingSlider.MajorTicks = [12.5 25 50 100];
             app.SegmentationScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.SegmentationScalingSlider.MinorTicks = [];
+            app.SegmentationScalingSlider.MinorTicksMode = 'manual';
             app.SegmentationScalingSlider.Enable = 'off';
             app.SegmentationScalingSlider.Tooltip = {'Set the scaling factor used when generating the output tumor segmentation map. Default = 1/2'};
             app.SegmentationScalingSlider.Position = [134 183 150 3];
@@ -2694,7 +2673,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.StainNormalizedImageScalingSlider.Limits = [12.5 100];
             app.StainNormalizedImageScalingSlider.MajorTicks = [12.5 25 50 100];
             app.StainNormalizedImageScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.StainNormalizedImageScalingSlider.MinorTicks = [];
+            app.StainNormalizedImageScalingSlider.MinorTicksMode = 'manual';
             app.StainNormalizedImageScalingSlider.Enable = 'off';
             app.StainNormalizedImageScalingSlider.Tooltip = {'Set the scaling factor used when generating the output stain normalized image. Default = FULL'};
             app.StainNormalizedImageScalingSlider.Position = [135 137 150 3];
@@ -2702,8 +2681,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create SegmentationImageCheckBox
             app.SegmentationImageCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.SegmentationImageCheckBox.Enable = 'off';
             app.SegmentationImageCheckBox.Tooltip = {'When checked, an output image with individual tumors segmented and labeled will be generated. The tumor labeling process can take some time in large images.'};
+            app.SegmentationImageCheckBox.Enable = 'off';
             app.SegmentationImageCheckBox.Text = '';
             app.SegmentationImageCheckBox.Position = [4 176 25 22];
 
@@ -2719,7 +2698,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             app.ConfidenceMapScalingSlider.Limits = [12.5 100];
             app.ConfidenceMapScalingSlider.MajorTicks = [12.5 25 50 100];
             app.ConfidenceMapScalingSlider.MajorTickLabels = {'1/8', '1/4', '1/2', 'FULL'};
-            app.ConfidenceMapScalingSlider.MinorTicks = [];
+            app.ConfidenceMapScalingSlider.MinorTicksMode = 'manual';
             app.ConfidenceMapScalingSlider.Enable = 'off';
             app.ConfidenceMapScalingSlider.Tooltip = {'Set the scaling factor used when generating the maximum class confidence/probability map. '; 'Default = 1/4'};
             app.ConfidenceMapScalingSlider.Position = [137 86 150 3];
@@ -2727,8 +2706,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create ConfidenceMapCheckBox
             app.ConfidenceMapCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.ConfidenceMapCheckBox.Enable = 'off';
             app.ConfidenceMapCheckBox.Tooltip = {'When checked, outputs a map of predicted class confidence/probabiilty for GLASS-AI''s prediction. A .mat file containing the activation weights of each class for each pixel will also be created.'};
+            app.ConfidenceMapCheckBox.Enable = 'off';
             app.ConfidenceMapCheckBox.Text = '';
             app.ConfidenceMapCheckBox.Position = [5 78 25 22];
 
@@ -2750,8 +2729,8 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create NormalizedImageOutputCheckBox
             app.NormalizedImageOutputCheckBox = uicheckbox(app.OutputImageScalingTab);
-            app.NormalizedImageOutputCheckBox.Enable = 'off';
             app.NormalizedImageOutputCheckBox.Tooltip = {'When checked, saves the stain normalized image as .tif file in the output folder.'};
+            app.NormalizedImageOutputCheckBox.Enable = 'off';
             app.NormalizedImageOutputCheckBox.Text = '';
             app.NormalizedImageOutputCheckBox.Position = [5 130 25 22];
 
@@ -2785,8 +2764,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create AppTitle
             app.AppTitle = uilabel(app.UIFigure);
             app.AppTitle.WordWrap = 'on';
-            app.AppTitle.FontSize = 18;
-            app.AppTitle.FontWeight = 'bold';
             app.AppTitle.Position = [87 368 247 50];
             app.AppTitle.Text = 'GLASS-AI Annotation Editor';
 
@@ -2804,7 +2781,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create UpdateAvailableButton
             app.UpdateAvailableButton = uibutton(app.UIFigure, 'push');
             app.UpdateAvailableButton.BackgroundColor = [0.9412 0.9412 0.9412];
-            app.UpdateAvailableButton.FontWeight = 'bold';
             app.UpdateAvailableButton.Enable = 'off';
             app.UpdateAvailableButton.Visible = 'off';
             app.UpdateAvailableButton.Tooltip = {'Click to get the latest version of the GLASS-AI app!'};
