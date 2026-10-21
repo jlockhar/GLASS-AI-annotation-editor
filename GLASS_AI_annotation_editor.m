@@ -1397,7 +1397,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             mlapp_location = replace(mfilename('fullpath'),[filesep mfilename()]+textBoundary('end'),'');
 
             % set path to expected 'Resources' folder location
-            app.RESOURCE_DIR_PATH = fullfile(mlapp_location,"Resources");
+            app.RESOURCE_DIR_PATH = fullfile(mlapp_location,"resources");
 
 
             %validate RESOURCE_DIR_PATH by changing UI images
@@ -1958,6 +1958,11 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             end
 
             delete(app)
+        end
+
+        % Button pushed function: UpdateAvailableButton
+        function UpdateAvailableButtonPushed(app, event)
+            web("https://github.com/jlockhar/GLASS-AI-annotation-editor")
         end
     end
 
@@ -2780,6 +2785,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
             % Create UpdateAvailableButton
             app.UpdateAvailableButton = uibutton(app.UIFigure, 'push');
+            app.UpdateAvailableButton.ButtonPushedFcn = createCallbackFcn(app, @UpdateAvailableButtonPushed, true);
             app.UpdateAvailableButton.BackgroundColor = [0.9412 0.9412 0.9412];
             app.UpdateAvailableButton.Enable = 'off';
             app.UpdateAvailableButton.Visible = 'off';
