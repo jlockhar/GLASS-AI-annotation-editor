@@ -9,14 +9,13 @@ The main purpose is to mark regions to be excluded from analysis (e.g., non-lung
 ## Installation
 Download and run the latest version of the GLASS-AI annotation editor installer for your operating system [here](https://moffitt.box.com/s/sjt4dz85ojwrskf0e8bxg00rcm98hn03). Installers are hosted on Box by Moffitt Cancer Center as the files are too large to upload to GitHub.
 
-   - **Mac users: If you require an Intel version of the application, please open an issue on this repository, and I will compile one.**
    - **Mac users: If you get a 'GLASS-AI annotation editor....app can't be opened' or 'GLASS-AI annotation editor....app is damaged' error when trying to run the installer, it is being blocked by your security settings in MacOS. If you can't enable installation from third-party developers, you can remove the quarantine flag that MacOS adds to downloaded apps by running `xattr -c <path/to/GLASS-AI_annotation_editor_installer.app>` in Terminal before running the installer.**
    - Older versions of the GLASS-AI annotation editor can be found [here](https://moffitt.ent.box.com/folder/280947711873).
    - During startup, the GLASS-AI annotation editor will check for new versions of the app here on GitHub and let you know if an update is available.
 
 Each installer will also install a copy of the MATLAB Runtime required to run the program without a pre-existing copy of MATLAB (and requisite toolboxes). **You do not need a MATLAB license to run the precompiled versions of the GLASS-AI annotation editor**.
 
-You can also use the `GLASS_AI_annotation_editor.m` file in this repository if you have the required MATLAB version (r2024a). 
+You can also use the `GLASS_AI_annotation_editor.m` file in this repository if you have the required MATLAB version (R2026a). 
 
 *Installation time should be < 5 minutes, but may take longer depending on download speeds between your computer and MATHWORKS. Any updates to app that do not require updating the MATLAB Runtime should install almost instantly.*
 
@@ -26,7 +25,7 @@ In this example image, there is a large amount of lymphoid tissue on the left si
 These regions have been manually annotated in QuPath as "Ignore*" (one of the default classes). 
 ![image](https://github.com/user-attachments/assets/25c7a34a-ac19-4032-bd49-52cc3117c9d1)
 
-The annotations are then exported as a `.geojson` file using the 'Export as FeatureCollection' option.
+The annotations are then exported as a `.geojson` file using `File > Export objects as GeoJSON...`. You can use the default options for exports, but be sure you select `All objest` option if that's what you want.
 ![image](https://github.com/user-attachments/assets/61b5a761-cce5-413f-8296-f8675d0d2603)
 
 In the GLASS-AI Annotation Editor App, we then select the image file, GLASS-AI output, and manual annotations.
@@ -37,7 +36,7 @@ In the GLASS-AI Annotation Editor App, we then select the image file, GLASS-AI o
 - Right-clicking in the table will bring up a context menu that can be used to clear multiple cells.
 ![image](https://github.com/user-attachments/assets/b6b713ef-7212-4af7-8e0d-90d28e795efe)
 
-Once all of the files have been added, clicking the `Run` button will overlay the manual annotations on the GLASS-AI output classifications, reanalyze the tumors in the image, and output the modified results.
+Once all files have been added, clicking the `Run` button will overlay the manual annotations on the GLASS-AI output classifications, reanalyze the tumors in the image, and produce the modified results.
 ![Annotation editor workflow](https://github.com/user-attachments/assets/5de4e7c2-b360-49c6-bfc7-442670feb738)
 
 Tumor analysis options in the GLASS-AI app are also available in this app's 'Tumor Analysis' tab.
@@ -54,7 +53,6 @@ If you want to use your own class names in QuPath, you can define the mapping to
   - Normal Airway: contains 'Airway'
   - Ignore: contains 'Ignore'
   
-
 Likewise, the colors used to represent each class in the output images can be changed in the 'Grade Map Colors' tab, while the scale of the output images can be set in the 'Output Image Scaling' tab.
 - If you import a GLASS-AI log file, these options will be automatically set to the same values used in the GLASS-AI run.
 
@@ -68,6 +66,8 @@ For troubleshooting advice, please reach out to us by (preferably) [opening a ne
 	* GLASS-AI can help analyze large sets of images, but you'll still need to interpret the results from the output tables and images. This R notebook that analyzes and graphs the results from GLASS-AI in many different ways (e.g., tumor counts, total tumor area, the proportion of lung area occupied by tumors, and intratumor heterogeneity estimates). This file can also be used to perform some basic statistical comparisons between groups that you define.
 * [**GLASS-AI manual annotation editor**](https://github.com/jlockhar/GLASS-AI-annotation-editor)
 	* GLASS-AI is not infallible, but the primary issues we've observed arise from unknown/untrained features in the analyzed images. This MATLAB app allows you to incorporate manual annotations created in [QuPath](https://qupath.github.io/) into the annotations produced by GLASS-AI (for example, including 'Grade 5' LUAD tumor areas or excluding non-lung tissue).
+* [**GLASS-AI viewer**]](https://github.com/jlockhar/GLASS-AI-Viewer)
+	* If you need to generate images of the H&E images and GLASS-AI results or to simply compare the two, this provides an easy way to view the input images with the GLASS-AI results as an adjustable overlay.
 * [**Stained-GLASS-AI**](https://github.com/jlockhar/Stained-GLASS-AI)
 	* The high-resolution grading provided by GLASS-AI can empower molecular analyses of particular cell types, gene expression changes, or activation of signaling cascades marked by immunohistochemistry (IHC). By registering an IHC-stained slide with the one analyzed by GLASS-AI, cell annotations can be projected onto the tumor grade maps output by GLASS-AI. In addition, a peritumoral analysis module is included to assess changes in the recruitment of cells to regions surrounding tumors.
 
