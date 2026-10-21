@@ -8,3 +8,6 @@ GLASS_AI_Annotation_Editor_WIN.prj
 /GLASS_AI_Annotation_Editor_WIN_resources
 Thumbs.db
 *.bak*
+deploymentScript.m
+*.asv
+/GLASS_AI_annotation_editor Standalone Application

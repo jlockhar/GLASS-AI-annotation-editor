@@ -139,7 +139,7 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
 
     properties (Access = private)
         % App info %
-        GLASSAI_EDITOR_APP_VERSION = '1.4.0'
+        GLASSAI_EDITOR_APP_VERSION = '1.3.0'
         
         % Folder navigation %
         RESOURCE_DIR_PATH
