@@ -2008,7 +2008,6 @@ classdef GLASS_AI_annotation_editor < matlab.apps.AppBase
             % Create TumorAnalysisTab
             app.TumorAnalysisTab = uitab(app.TabGroup);
             app.TumorAnalysisTab.Title = 'Tumor Analysis';
-            app.TumorAnalysisTab.BackgroundColor = [0.902 0.902 0.902];
 
             % Create TumorSizeThresholdInput
             app.TumorSizeThresholdInput = uieditfield(app.TumorAnalysisTab, 'numeric');
